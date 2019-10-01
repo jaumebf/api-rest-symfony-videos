@@ -155,4 +155,14 @@ class User
     }
 
 
+    /*
+     * @return Collection|Video[]
+     */
+    
+    public function getVideos(): Collection
+    {
+        return $this->videos;
+    }
+
+
 }
