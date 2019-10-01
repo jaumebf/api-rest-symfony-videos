@@ -1,0 +1,13 @@
+#index:
+#    path: /
+#    controller: App\Controller\DefaultController::index
+
+#Rutas para el controlador de usuario#
+user:
+    path: /user
+    controller: App\Controller\UserController::index
+
+#Rutas para el controlador de video#
+video:
+    path: /video
+    controller: App\Controller\VideoController::index
