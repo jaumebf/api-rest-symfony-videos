@@ -4,9 +4,25 @@
 
 #Rutas para el controlador de usuario#
 user:
-    path: /user
+    path: /usuario
     controller: App\Controller\UserController::index
+    methods: [POST]
 
+register:
+    path: /register
+    controller: App\Controller\UserController::create
+    methods: [POST]
+    
+login:
+    path: /login
+    controller: App\Controller\UserController::login
+    methods: [POST]
+    
+user_edit:
+    path: /user/edit
+    controller: App\Controller\UserController::edit
+    methods: [PUT]
+    
 #Rutas para el controlador de video#
 video:
     path: /video
