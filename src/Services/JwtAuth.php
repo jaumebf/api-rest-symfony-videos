@@ -65,7 +65,6 @@ class JwtAuth {
 
         try {
             $decoded = JWT::decode($jwt, $this->key, ['HS256']);
-            
         } catch (\UnexpectedValueException $e) {
             $auth = false;
         } catch (\DomainException $e) {
@@ -77,13 +76,12 @@ class JwtAuth {
         } else {
             $auth = false;
         }
-        
-        if($identity !=false){
-           return $decoded;
-        }else{
+
+        if ($identity != false) {
+            return $decoded;
+        } else {
             return $auth;
         }
-        
     }
 
 }
