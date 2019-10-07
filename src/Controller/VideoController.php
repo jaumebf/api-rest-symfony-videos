@@ -8,11 +8,9 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Validator\Validation;
 use Symfony\Component\Validator\Constraints\Email;
-
 use App\Entity\User;
 use App\Entity\Video;
 use App\Services\JwtAuth;
-
 use Knp\Component\Pager\PaginatorInterface;
 
 class VideoController extends AbstractController {
@@ -41,7 +39,7 @@ class VideoController extends AbstractController {
         ]);
     }
 
-    public function create(Request $request, JwtAuth $jwt_auth) {
+    public function create(Request $request, JwtAuth $jwt_auth, $id = null) {
         $data = [
             'status' => 'error',
             'code' => 400,
@@ -77,29 +75,58 @@ class VideoController extends AbstractController {
                     'id' => $user_id
                 ]);
 
-                //Crear y guardar objeto
-                $video = new Video();
-                $video->setUser($user);
-                $video->setTitle($title);
-                $video->setDescription($description);
-                $video->setUrl($url);
-                $video->setStatus('normal');
+                if ($id == null) {
+                    //Crear y guardar objeto
+                    $video = new Video();
+                    $video->setUser($user);
+                    $video->setTitle($title);
+                    $video->setDescription($description);
+                    $video->setUrl($url);
+                    $video->setStatus('normal');
 
-                $createdAt = new \DateTime('now');
-                $updatedAt = new \DateTime('now');
-                $video->setCreatedAt($createdAt);
-                $video->setUpdatedAt($updatedAt);
+                    $createdAt = new \DateTime('now');
+                    $updatedAt = new \DateTime('now');
+                    $video->setCreatedAt($createdAt);
+                    $video->setUpdatedAt($updatedAt);
 
-                //Guardar en bd
-                $em->persist($video);
-                $em->flush();
+                    //Guardar en bd
+                    $em->persist($video);
+                    $em->flush();
 
-                $data = [
-                    'status' => 'success',
-                    'code' => 200,
-                    'message' => 'El video se ha guardado',
-                    'video' => $video
-                ];
+                    $data = [
+                        'status' => 'success',
+                        'code' => 200,
+                        'message' => 'El video se ha guardado',
+                        'video' => $video
+                    ];
+
+                    //Actualizar
+                } else {
+                    //Buscar video
+                    $video = $this->getDoctrine()->getRepository(Video::class)->findOneBy([
+                        'id' => $id,
+                        'user' => $identity->sub
+                    ]);
+
+                    if ($video && is_object($video)) {
+                        $video->setTitle($title);
+                        $video->setDescription($description);
+                        $video->setUrl($url);
+
+                        $updatedAt = new \DateTime('now');
+                        $video->setUpdatedAt($updatedAt);
+
+                        $em->persist($video);
+                        $em->flush();
+
+                        $data = [
+                            'status' => 'success',
+                            'code' => 200,
+                            'message' => 'El video se ha actualizado',
+                            'video' => $video
+                        ];
+                    }
+                }
             }
         }
 
@@ -119,21 +146,20 @@ class VideoController extends AbstractController {
             //Conseguir la identidad del usuario
             $identity = $jwt_auth->checkToken($token, true);
             $em = $this->getDoctrine()->getManager();
-            
+
             //Configurar el bundle de paginacion
             $dql = "SELECT v FROM App\Entity\Video v WHERE v.user = {$identity->sub} ORDER BY v.id DESC";
             $query = $em->createQuery($dql);
-            
+
             //Hacer una consulta para paginar
             $page = $request->query->getInt('page', 1);
             $items_per_page = 5;
-            
+
             //Recoger el parametro page de la url
             $pagination = $paginator->paginate($query, $page, $items_per_page);
-            $total = $pagination->getTotalItemCount(); 
-                    
+            $total = $pagination->getTotalItemCount();
+
             //Invocar paginación
-            
             //Preparar array de datos para devolver
             $data = [
                 'status' => 'success',
@@ -143,19 +169,96 @@ class VideoController extends AbstractController {
                 'items_per_page' => $items_per_page,
                 'total_pages' => ceil($total / $items_per_page),
                 'videos' => $pagination,
-                'user_id' => $identity->sub 
-            ];     
-            
-        }else{
+                'user_id' => $identity->sub
+            ];
+        } else {
             //Si falla devolver esto:
             $data = [
                 'status' => 'error',
                 'code' => 404,
                 'message' => 'No se pueden listar los video en este momento.'
-            ];            
+            ];
         }
 
 
+        return $this->resjson($data);
+    }
+
+    public function video(Request $request, JwtAuth $jwt_auth, $id = null) {
+        //Recoger la cabecera de autenticación
+        $token = $request->headers->get('Authorization');
+        $authCheck = $jwt_auth->checkToken($token);
+
+        $data = [
+            'status' => 'error',
+            'code' => 404,
+            'message' => 'video no encontrado',
+            'id' => $id
+        ];
+
+        if ($authCheck) {
+            //Sacar la identidad del usuario
+            $identity = $jwt_auth->checkToken($token, true);
+
+            //Sacar el objeto del video en base el id
+            $video = $this->getDoctrine()->getRepository(Video::class)->findOneBy([
+                'id' => $id,
+                'user' => $identity->sub
+            ]);
+
+            //Comprobar si el video existe y es propiedad del usuario identificado
+            if ($video && is_object($video)) {
+                $data = [
+                    'status' => 'success',
+                    'code' => 200,
+                    'video' => $video
+                ];
+            }
+        }
+
+        //Devolver una respuesta       
+        return $this->resjson($data);
+    }
+
+    public function remove(Request $request, JwtAuth $jwt_auth, $id = null) {
+        //Recoger la cabecera de autenticación
+        $token = $request->headers->get('Authorization');
+        $authCheck = $jwt_auth->checkToken($token);
+
+        $data = [
+            'status' => 'error',
+            'code' => 404,
+            'message' => 'video no encontrado',
+            'id' => $id
+        ];
+
+        if ($authCheck) {
+            //Sacar la identidad del usuario
+            $identity = $jwt_auth->checkToken($token, true);
+
+            $doctrine = $this->getDoctrine();
+            $em = $doctrine->getManager();
+
+            //Sacar el objeto del video en base el id
+            $video = $doctrine->getRepository(Video::class)->findOneBy([
+                'id' => $id,
+                'user' => $identity->sub
+            ]);
+
+            //Comprobar si el video existe y es propiedad del usuario identificado
+            if ($video && is_object($video)) {
+                $em->remove($video);
+                $em->flush();
+
+                $data = [
+                    'status' => 'success',
+                    'code' => 200,
+                    'video' => $video
+                ];
+            }
+        }
+
+        //Devolver una respuesta       
         return $this->resjson($data);
     }
 
